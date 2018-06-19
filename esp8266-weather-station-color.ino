@@ -28,9 +28,10 @@ See more at https://blog.squix.org
 #include <SPI.h>
 #include <ESP8266WiFi.h>
 
-#include <XPT2046_Touchscreen.h>
-#include "TouchControllerWS.h"
-
+#ifdef HAVE_TOUCHPAD
+  #include <XPT2046_Touchscreen.h>
+  #include "TouchControllerWS.h"
+#endif
 
 /***
  * Install the following libraries through Arduino Library Manager
@@ -83,12 +84,13 @@ ILI9341_SPI tft = ILI9341_SPI(TFT_CS, TFT_DC);
 MiniGrafx gfx = MiniGrafx(&tft, BITS_PER_PIXEL, palette);
 Carousel carousel(&gfx, 0, 0, 240, 100);
 
+#ifdef HAVE_TOUCHPAD
+  XPT2046_Touchscreen ts(TOUCH_CS, TOUCH_IRQ);
+  TouchControllerWS touchController(&ts);
 
-XPT2046_Touchscreen ts(TOUCH_CS, TOUCH_IRQ);
-TouchControllerWS touchController(&ts);
-
-void calibrationCallback(int16_t x, int16_t y);
-CalibrationCallback calibration = &calibrationCallback;
+  void calibrationCallback(int16_t x, int16_t y);
+  CalibrationCallback calibration = &calibrationCallback;
+#endif
   
 
 OpenWeatherMapCurrentData currentWeather;
@@ -168,8 +170,10 @@ void setup() {
 
   connectWifi();
 
+#ifdef HAVE_TOUCHPAD
   Serial.println("Initializing touch screen...");
   ts.begin();
+#endif
   
   Serial.println("Mounting file system...");
   bool isFSMounted = SPIFFS.begin();
@@ -179,6 +183,8 @@ void setup() {
     SPIFFS.format();
   }
   drawProgress(100,"Formatting done");
+
+#ifdef HAVE_TOUCHPAD
   //SPIFFS.remove("/calibration.txt");
   boolean isCalibrationAvailable = touchController.loadCalibration();
   if (!isCalibrationAvailable) {
@@ -195,7 +201,7 @@ void setup() {
     }
     touchController.saveCalibration();
   }
-
+#endif
 
   carousel.setFrames(frames, frameCount);
   carousel.disableAllIndicators();
@@ -207,12 +213,18 @@ void setup() {
 }
 
 long lastDrew = 0;
-bool btnClick;
-uint8_t MAX_TOUCHPOINTS = 10;
-TS_Point points[10];
-uint8_t currentTouchPoint = 0;
+
+#ifdef HAVE_TOUCHPAD
+  bool btnClick;
+  uint8_t MAX_TOUCHPOINTS = 10;
+  TS_Point points[10];
+  uint8_t currentTouchPoint = 0;
+#endif
+
 void loop() {
   gfx.fillBuffer(MINI_BLACK);
+
+#ifdef HAVE_TOUCHPAD
   if (touchController.isTouched(0)) {
     TS_Point p = touchController.getPoint();
 
@@ -222,7 +234,7 @@ void loop() {
       screen = (screen + 1) % screenCount;
     }
   }
-
+#endif
   
   if (screen == 0) {
     drawTime();
