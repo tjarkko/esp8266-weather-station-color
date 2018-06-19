@@ -29,14 +29,14 @@ const int UPDATE_INTERVAL_SECS = 15 * 60; // Update every 10 minutes
 const int SLEEP_INTERVAL_SECS = 0;   // Going to Sleep after idle times, set 0 for dont sleep
 
 
+/* Feather Huzzah + 2.4" TFT wing */
 // Pins for the ILI9341
-#define TFT_DC D2
-#define TFT_CS D1
-#define TFT_LED D8
-
-#define HAVE_TOUCHPAD
-#define TOUCH_CS D3
-#define TOUCH_IRQ  D4
+#define TFT_DC 15
+#define TFT_CS 0
+#define TFT_LED 5
+//#define HAVE_TOUCHPAD
+#define TOUCH_CS 16
+#define TOUCH_IRQ  4
     
 
 
