@@ -163,7 +163,7 @@ void setup() {
   pinMode(TFT_LED, OUTPUT);
   digitalWrite(TFT_LED, HIGH);    // HIGH to Turn on;
 
-  
+  delay(100); 
   gfx.init();
   gfx.fillBuffer(MINI_BLACK);
   gfx.commit();
@@ -651,4 +651,3 @@ String getTime(time_t *timestamp) {
   sprintf(buf, "%02d:%02d", timeInfo->tm_hour, timeInfo->tm_min);
   return String(buf);
 }
-
