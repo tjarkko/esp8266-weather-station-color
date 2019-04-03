@@ -1,5 +1,5 @@
 #include <FS.h>
-#include <XPT2046_Touchscreen.h>
+#include <Adafruit_STMPE610.h>
 
 #ifndef _TOUCH_CONTROLLERWSH_
 #define _TOUCH_CONTROLLERWSH_
@@ -8,7 +8,7 @@ typedef void (*CalibrationCallback)(int16_t x, int16_t y);
 
 class TouchControllerWS {
   public:
-    TouchControllerWS(XPT2046_Touchscreen *touchScreen);
+    TouchControllerWS(Adafruit_STMPE610 *touchScreen);
     bool loadCalibration();
     bool saveCalibration();
     void startCalibration(CalibrationCallback *callback);
@@ -19,7 +19,7 @@ class TouchControllerWS {
     TS_Point getPoint();
 
   private:
-    XPT2046_Touchscreen *touchScreen;
+    Adafruit_STMPE610 *touchScreen;
     float dx = 0.0;
     float dy = 0.0;
     int ax = 0;

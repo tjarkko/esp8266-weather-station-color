@@ -1,8 +1,6 @@
-#ifdef HAVE_TOUCHPAD
-
 #include "TouchControllerWS.h"
 
-TouchControllerWS::TouchControllerWS(XPT2046_Touchscreen *touchScreen) {
+TouchControllerWS::TouchControllerWS(Adafruit_STMPE610 *touchScreen) {
   this->touchScreen = touchScreen;
 }
   
@@ -105,5 +103,3 @@ TS_Point TouchControllerWS::getPoint() {
     p.y = y;
     return p;
 }
-
-#endif // HAVE_TOUCHPAD

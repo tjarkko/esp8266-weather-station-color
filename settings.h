@@ -21,8 +21,8 @@ See more at http://blog.squix.ch
 #include <simpleDSTadjust.h>
 
 // Setup
-#define WIFI_SSID "yourssid"
-#define WIFI_PASS "yourpassw0rd"
+#define WIFI_SSID "the_ssid"
+#define WIFI_PASS "your_password"
 #define WIFI_HOSTNAME "ThingPulse-weather-station-color"
 
 const int UPDATE_INTERVAL_SECS = 15 * 60; // Update every 10 minutes
@@ -34,9 +34,10 @@ const int SLEEP_INTERVAL_SECS = 0;   // Going to Sleep after idle times, set 0 f
 #define TFT_DC 15
 #define TFT_CS 0
 #define TFT_LED 5
-//#define HAVE_TOUCHPAD
+
+#define HAVE_TOUCHPAD
 #define TOUCH_CS 16
-#define TOUCH_IRQ  4
+//#define TOUCH_IRQ  4
     
 
 
@@ -44,8 +45,8 @@ const int SLEEP_INTERVAL_SECS = 0;   // Going to Sleep after idle times, set 0 f
 // Sign up here to get an API key:
 // https://home.openweathermap.org/users/sign_up
 const boolean IS_METRIC = true;
-String OPEN_WEATHER_MAP_APP_ID = "6bdd4d9d45a97d690103477a4c67c38f";
-String OPEN_WEATHER_MAP_LOCATION = "Zurich,CH";
+String OPEN_WEATHER_MAP_APP_ID = "ascowijcawjr390r2834q";
+String OPEN_WEATHER_MAP_LOCATION = "Manhattan,US";
 
 // Pick a language code from this list:
 // Arabic - ar, Bulgarian - bg, Catalan - ca, Czech - cz, German - de, Greek - el,
@@ -85,4 +86,3 @@ bool IS_STYLE_12HR = false;
 /***************************
  * End Settings
  **************************/
-

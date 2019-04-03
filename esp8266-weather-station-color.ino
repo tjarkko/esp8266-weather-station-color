@@ -28,10 +28,8 @@ See more at https://blog.squix.org
 #include <SPI.h>
 #include <ESP8266WiFi.h>
 
-#ifdef HAVE_TOUCHPAD
-  #include <XPT2046_Touchscreen.h>
+  #include <Adafruit_STMPE610.h>
   #include "TouchControllerWS.h"
-#endif
 
 /***
  * Install the following libraries through Arduino Library Manager
@@ -85,7 +83,7 @@ MiniGrafx gfx = MiniGrafx(&tft, BITS_PER_PIXEL, palette);
 Carousel carousel(&gfx, 0, 0, 240, 100);
 
 #ifdef HAVE_TOUCHPAD
-  XPT2046_Touchscreen ts(TOUCH_CS, TOUCH_IRQ);
+  Adafruit_STMPE610 ts(TOUCH_CS);
   TouchControllerWS touchController(&ts);
 
   void calibrationCallback(int16_t x, int16_t y);
@@ -172,7 +170,10 @@ void setup() {
 
 #ifdef HAVE_TOUCHPAD
   Serial.println("Initializing touch screen...");
-  ts.begin();
+  if (!ts.begin()) {
+    Serial.println("Couldn't start touchscreen controller");
+    while (1);
+  }
 #endif
   
   Serial.println("Mounting file system...");
@@ -185,7 +186,7 @@ void setup() {
   drawProgress(100,"Formatting done");
 
 #ifdef HAVE_TOUCHPAD
-  //SPIFFS.remove("/calibration.txt");
+  SPIFFS.remove("/calibration.txt");
   boolean isCalibrationAvailable = touchController.loadCalibration();
   if (!isCalibrationAvailable) {
     Serial.println("Calibration not available");
@@ -200,6 +201,8 @@ void setup() {
       yield();
     }
     touchController.saveCalibration();
+  } else {
+    Serial.println("Touchscreen calibrated");
   }
 #endif
 
@@ -227,7 +230,10 @@ void loop() {
 #ifdef HAVE_TOUCHPAD
   if (touchController.isTouched(0)) {
     TS_Point p = touchController.getPoint();
-
+    Serial.print("Touchscreen touch: "); 
+    Serial.print(p.x); Serial.print(", "); 
+    Serial.print(p.y);Serial.print(", "); 
+    Serial.println(p.z);
     if (p.y < 80) {
       IS_STYLE_12HR = !IS_STYLE_12HR;
     } else {
@@ -265,7 +271,7 @@ void loop() {
       lastDownloadUpdate = millis();
   }
 
-  if (SLEEP_INTERVAL_SECS && millis() - timerPress >= SLEEP_INTERVAL_SECS * 1000){ // after 2 minutes go to sleep
+  if (SLEEP_INTERVAL_SECS && ((millis() - timerPress) >= (SLEEP_INTERVAL_SECS * 1000))){ // after 2 minutes go to sleep
     drawProgress(25,"Going to Sleep!");
     delay(1000);
     drawProgress(50,"Going to Sleep!");
