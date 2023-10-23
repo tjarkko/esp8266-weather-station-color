@@ -1,0 +1,37 @@
+# Arduino build files
+build/
+*.hex
+*.elf
+*.eep
+*.bin
+*.srec
+*.map
+*.lst
+*.sym
+
+# Arduino core libraries
+libraries/
+
+# Arduino IDE project files
+*.ino
+*.cpp
+*.h
+*.c
+*.s
+*.pde
+*.pl
+*.py
+
+# Arduino IDE settings
+*.xml
+*.properties
+
+# Arduino IDE build files
+*.DS_Store
+
+# Arduino VS Code extension settings
+.vscode/
+arduino.json
+c_cpp_properties.json
+tasks.json
+launch.json

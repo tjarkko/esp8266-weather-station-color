@@ -18,7 +18,6 @@ SOFTWARE.
 See more at https://blog.squix.org
 */
 
-
 /*****************************
  * Important: see settings.h to configure your settings!!!
  * ***************************/
@@ -26,10 +25,10 @@ See more at https://blog.squix.org
 
 #include <Arduino.h>
 #include <SPI.h>
-#include <ESP8266WiFi.h>
+#include <WiFiManager.h>
 
-  #include <Adafruit_STMPE610.h>
-  #include "TouchControllerWS.h"
+#include <Adafruit_STMPE610.h>
+#include "TouchControllerWS.h"
 
 /***
  * Install the following libraries through Arduino Library Manager
@@ -47,13 +46,9 @@ See more at https://blog.squix.org
 #include <Carousel.h>
 #include <ILI9341_SPI.h>
 
-
 #include "ArialRounded.h"
 #include "moonphases.h"
 #include "weathericons.h"
-
-
-
 
 #define MINI_BLACK 0
 #define MINI_WHITE 1
@@ -63,33 +58,29 @@ See more at https://blog.squix.org
 #define MAX_FORECASTS 12
 
 // defines the colors usable in the paletted 16 color frame buffer
-uint16_t palette[] = {ILI9341_BLACK, // 0
-                      ILI9341_WHITE, // 1
+uint16_t palette[] = {ILI9341_BLACK,  // 0
+                      ILI9341_WHITE,  // 1
                       ILI9341_YELLOW, // 2
-                      0x7E3C
-                      }; //3
+                      0x7E3C};        // 3
 
 int SCREEN_WIDTH = 240;
 int SCREEN_HEIGHT = 320;
 // Limited to 4 colors due to memory constraints
 int BITS_PER_PIXEL = 2; // 2^2 =  4 colors
 
-
-ADC_MODE(ADC_VCC);
-
+// ADC_MODE(ADC_VCC);
 
 ILI9341_SPI tft = ILI9341_SPI(TFT_CS, TFT_DC);
 MiniGrafx gfx = MiniGrafx(&tft, BITS_PER_PIXEL, palette);
 Carousel carousel(&gfx, 0, 0, 240, 100);
 
 #ifdef HAVE_TOUCHPAD
-  Adafruit_STMPE610 ts(TOUCH_CS);
-  TouchControllerWS touchController(&ts);
+Adafruit_STMPE610 ts(TOUCH_CS);
+TouchControllerWS touchController(&ts);
 
-  void calibrationCallback(int16_t x, int16_t y);
-  CalibrationCallback calibration = &calibrationCallback;
+void calibrationCallback(int16_t x, int16_t y);
+CalibrationCallback calibration = &calibrationCallback;
 #endif
-  
 
 OpenWeatherMapCurrentData currentWeather;
 OpenWeatherMapForecastData forecasts[MAX_FORECASTS];
@@ -110,12 +101,12 @@ void drawForecastTable(uint8_t start);
 void drawAbout();
 void drawSeparator(uint16_t y);
 String getTime(time_t *timestamp);
-const char* getMeteoconIconFromProgmem(String iconText);
-const char* getMiniMeteoconIconFromProgmem(String iconText);
-void drawForecast1(MiniGrafx *display, CarouselState* state, int16_t x, int16_t y);
-void drawForecast2(MiniGrafx *display, CarouselState* state, int16_t x, int16_t y);
-void drawForecast3(MiniGrafx *display, CarouselState* state, int16_t x, int16_t y);
-FrameCallback frames[] = { drawForecast1, drawForecast2, drawForecast3 };
+const char *getMeteoconIconFromProgmem(String iconText);
+const char *getMiniMeteoconIconFromProgmem(String iconText);
+void drawForecast1(MiniGrafx *display, CarouselState *state, int16_t x, int16_t y);
+void drawForecast2(MiniGrafx *display, CarouselState *state, int16_t x, int16_t y);
+void drawForecast3(MiniGrafx *display, CarouselState *state, int16_t x, int16_t y);
+FrameCallback frames[] = {drawForecast1, drawForecast2, drawForecast3};
 int frameCount = 3;
 
 // how many different screens do we have?
@@ -129,29 +120,39 @@ long timerPress;
 bool canBtnPress;
 time_t dstOffset = 0;
 
-void connectWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-  //Manual Wifi
+int inputPin = 14;  // choose the input pin (for PIR sensor)
+int pirState = LOW; // we start, assuming no motion detected
+int val = 0;        // variable for reading the pin status
+long lastMotionMillis = 0;
+
+void connectWifi()
+{
+  if (WiFi.status() == WL_CONNECTED)
+    return;
+  // Manual Wifi
   Serial.print("Connecting to WiFi ");
   Serial.print(WIFI_SSID);
   Serial.print("/");
   Serial.println(WIFI_PASS);
   WiFi.mode(WIFI_STA);
   WiFi.hostname(WIFI_HOSTNAME);
-  WiFi.begin(WIFI_SSID,WIFI_PASS);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
   int i = 0;
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(500);
-    if (i>80) i=0;
-    drawProgress(i,"Connecting to WiFi '" + String(WIFI_SSID) + "'");
-    i+=10;
+    if (i > 80)
+      i = 0;
+    drawProgress(i, "Connecting to WiFi '" + String(WIFI_SSID) + "'");
+    i += 10;
     Serial.print(".");
   }
-  drawProgress(100,"Connected to WiFi '" + String(WIFI_SSID) + "'");
+  drawProgress(100, "Connected to WiFi '" + String(WIFI_SSID) + "'");
   Serial.print("Connected...");
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 
   // The LED pin needs to set HIGH
@@ -159,9 +160,12 @@ void setup() {
   // Turn on the background LED
   Serial.println(TFT_LED);
   pinMode(TFT_LED, OUTPUT);
-  digitalWrite(TFT_LED, HIGH);    // HIGH to Turn on;
+  digitalWrite(TFT_LED, HIGH); // HIGH to Turn on;
 
-  delay(100); 
+  pinMode(BACKLIGHT, OUTPUT);    // declare backlight pin as output
+  digitalWrite(BACKLIGHT, HIGH); // HIGH to Turn on;
+
+  delay(100);
   gfx.init();
   gfx.fillBuffer(MINI_BLACK);
   gfx.commit();
@@ -170,28 +174,33 @@ void setup() {
 
 #ifdef HAVE_TOUCHPAD
   Serial.println("Initializing touch screen...");
-  if (!ts.begin()) {
+  if (!ts.begin())
+  {
     Serial.println("Couldn't start touchscreen controller");
-    while (1);
+    while (1)
+      ;
   }
 #endif
-  
+
   Serial.println("Mounting file system...");
   bool isFSMounted = SPIFFS.begin();
-  if (!isFSMounted) {
+  if (!isFSMounted)
+  {
     Serial.println("Formatting file system...");
-    drawProgress(50,"Formatting file system");
+    drawProgress(50, "Formatting file system");
     SPIFFS.format();
   }
-  drawProgress(100,"Formatting done");
+  drawProgress(100, "Formatting done");
 
 #ifdef HAVE_TOUCHPAD
   SPIFFS.remove("/calibration.txt");
   boolean isCalibrationAvailable = touchController.loadCalibration();
-  if (!isCalibrationAvailable) {
+  if (!isCalibrationAvailable)
+  {
     Serial.println("Calibration not available");
     touchController.startCalibration(&calibration);
-    while (!touchController.isCalibrationFinished()) {
+    while (!touchController.isCalibrationFinished())
+    {
       gfx.fillBuffer(0);
       gfx.setColor(MINI_YELLOW);
       gfx.setTextAlignment(TEXT_ALIGN_CENTER);
@@ -201,7 +210,9 @@ void setup() {
       yield();
     }
     touchController.saveCalibration();
-  } else {
+  }
+  else
+  {
     Serial.println("Touchscreen calibrated");
   }
 #endif
@@ -213,40 +224,51 @@ void setup() {
   updateData();
   timerPress = millis();
   canBtnPress = true;
+  // Configure GPIO14 as a wake-up source when the voltage is 3.3V
+  // esp_sleep_enable_ext0_wakeup(GPIO_NUM_14, HIGH);
 }
 
 long lastDrew = 0;
 
 #ifdef HAVE_TOUCHPAD
-  bool btnClick;
-  uint8_t MAX_TOUCHPOINTS = 10;
-  TS_Point points[10];
-  uint8_t currentTouchPoint = 0;
+bool btnClick;
+uint8_t MAX_TOUCHPOINTS = 10;
+TS_Point points[10];
+uint8_t currentTouchPoint = 0;
 #endif
 
-void loop() {
+void loop()
+{
   gfx.fillBuffer(MINI_BLACK);
 
 #ifdef HAVE_TOUCHPAD
-  if (touchController.isTouched(0)) {
+  if (touchController.isTouched(0))
+  {
     TS_Point p = touchController.getPoint();
-    Serial.print("Touchscreen touch: "); 
-    Serial.print(p.x); Serial.print(", "); 
-    Serial.print(p.y);Serial.print(", "); 
+    Serial.print("Touchscreen touch: ");
+    Serial.print(p.x);
+    Serial.print(", ");
+    Serial.print(p.y);
+    Serial.print(", ");
     Serial.println(p.z);
-    if (p.y < 80) {
+    if (p.y < 80)
+    {
       IS_STYLE_12HR = !IS_STYLE_12HR;
-    } else {
+    }
+    else
+    {
       screen = (screen + 1) % screenCount;
     }
   }
 #endif
-  
-  if (screen == 0) {
+
+  if (screen == 0)
+  {
     drawTime();
     drawWifiQuality();
     int remainingTimeBudget = carousel.update();
-    if (remainingTimeBudget > 0) {
+    if (remainingTimeBudget > 0)
+    {
       // You can do some work here
       // Don't do stuff if you are below your
       // time budget.
@@ -254,45 +276,87 @@ void loop() {
     }
     drawCurrentWeather();
     drawAstronomy();
-  } else if (screen == 1) {
+  }
+  else if (screen == 1)
+  {
     drawCurrentWeatherDetail();
-  } else if (screen == 2) {
+  }
+  else if (screen == 2)
+  {
     drawForecastTable(0);
-  } else if (screen == 3) {
+  }
+  else if (screen == 3)
+  {
     drawForecastTable(4);
-  } else if (screen == 4) {
+  }
+  else if (screen == 4)
+  {
     drawAbout();
   }
   gfx.commit();
 
   // Check if we should update weather information
-  if (millis() - lastDownloadUpdate > 1000 * UPDATE_INTERVAL_SECS) {
-      updateData();
-      lastDownloadUpdate = millis();
+  if (millis() - lastDownloadUpdate > 1000 * UPDATE_INTERVAL_SECS)
+  {
+    updateData();
+    lastDownloadUpdate = millis();
   }
 
-  if (SLEEP_INTERVAL_SECS && ((millis() - timerPress) >= (SLEEP_INTERVAL_SECS * 1000))){ // after 2 minutes go to sleep
-    drawProgress(25,"Going to Sleep!");
+  val = digitalRead(inputPin); // read input value
+  if (val == HIGH)
+  { // check if the input is HIGH
+    // digitalWrite(ledPin, HIGH); // turn LED ON
+    if (pirState == LOW)
+    {
+      // we have just turned on
+      Serial.println("Motion detected!");
+      // We only want to print on the output change, not state
+      pirState = HIGH;
+      lastMotionMillis = millis();
+      digitalWrite(BACKLIGHT, HIGH); // HIGH to Turn backlight on;
+    }
+  }
+  else
+  {
+    // digitalWrite(ledPin, LOW); // turn LED OFF
+    if (pirState == HIGH)
+    {
+      // we have just turned of
+      Serial.println("Motion ended!");
+      // We only want to print on the output change, not state
+      pirState = LOW;
+    }
+  }
+
+  // if (SLEEP_INTERVAL_SECS && ((millis() - timerPress) >= (SLEEP_INTERVAL_SECS * 1000)))
+  if (SLEEP_INTERVAL_SECS && ((millis() - lastMotionMillis) >= (SLEEP_INTERVAL_SECS * 1000)))
+  { // after 2 minutes go to sleep
+    /*drawProgress(25, "Going to Sleep!");
     delay(1000);
-    drawProgress(50,"Going to Sleep!");
+    drawProgress(50, "Going to Sleep!");
     delay(1000);
-    drawProgress(75,"Going to Sleep!");
-    delay(1000);    
-    drawProgress(100,"Going to Sleep!");
-    // go to deepsleep for xx minutes or 0 = permanently
-    ESP.deepSleep(0,  WAKE_RF_DEFAULT);                       // 0 delay = permanently to sleep
-  }  
+    drawProgress(75, "Going to Sleep!");
+    delay(1000);
+    drawProgress(100, "Going to Sleep!");*/
+    digitalWrite(BACKLIGHT, LOW); // LOW to Turn backlight off;
+    // delay(10000);
+    //  go to deepsleep for xx minutes or 0 = permanently
+    //  ESP.deepSleep(0); // 0 delay = permanently to sleep
+    //  esp_deep_sleep_start();
+  }
 }
 
 // Update the internet based information and update screen
-void updateData() {
+void updateData()
+{
 
   gfx.fillBuffer(MINI_BLACK);
   gfx.setFont(ArialRoundedMTBold_14);
 
   drawProgress(10, "Updating time...");
   configTime(UTC_OFFSET * 3600, 0, NTP_SERVERS);
-  while(!time(nullptr)) {
+  while (!time(nullptr))
+  {
     Serial.print("#");
     delay(100);
   }
@@ -323,14 +387,15 @@ void updateData() {
   moonData = astronomy->calculateMoonData(time(nullptr));
   float lunarMonth = 29.53;
   moonAge = moonData.phase <= 4 ? lunarMonth * moonData.illumination / 2 : lunarMonth - moonData.illumination * lunarMonth / 2;
-  moonAgeImage = String((char) (65 + ((uint8_t) ((26 * moonAge / 30) % 26))));
+  moonAgeImage = String((char)(65 + ((uint8_t)((26 * moonAge / 30) % 26))));
   delete astronomy;
   astronomy = nullptr;
   delay(1000);
 }
 
 // Progress bar helper
-void drawProgress(uint8_t percentage, String text) {
+void drawProgress(uint8_t percentage, String text)
+{
   gfx.fillBuffer(MINI_BLACK);
   gfx.drawPalettedBitmapFromPgm(20, 5, ThingPulseLogo);
   gfx.setFont(ArialRoundedMTBold_14);
@@ -349,45 +414,53 @@ void drawProgress(uint8_t percentage, String text) {
 }
 
 // draws the clock
-void drawTime() {
+void drawTime()
+{
 
   char time_str[11];
   char *dstAbbrev;
   time_t now = dstAdjusted.time(&dstAbbrev);
-  struct tm * timeinfo = localtime (&now);
+  struct tm *timeinfo = localtime(&now);
 
   gfx.setTextAlignment(TEXT_ALIGN_CENTER);
   gfx.setFont(ArialRoundedMTBold_14);
   gfx.setColor(MINI_WHITE);
   String date = ctime(&now);
-  date = date.substring(0,11) + String(1900 + timeinfo->tm_year);
+  date = date.substring(0, 11) + String(1900 + timeinfo->tm_year);
   gfx.drawString(120, 6, date);
 
   gfx.setFont(ArialRoundedMTBold_36);
 
-  if (IS_STYLE_12HR) {
-    int hour = (timeinfo->tm_hour+11)%12+1;  // take care of noon and midnight
-    sprintf(time_str, "%2d:%02d:%02d\n",hour, timeinfo->tm_min, timeinfo->tm_sec);
+  if (IS_STYLE_12HR)
+  {
+    int hour = (timeinfo->tm_hour + 11) % 12 + 1; // take care of noon and midnight
+    sprintf(time_str, "%2d:%02d:%02d\n", hour, timeinfo->tm_min, timeinfo->tm_sec);
     gfx.drawString(120, 20, time_str);
-  } else {
-    sprintf(time_str, "%02d:%02d:%02d\n",timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+  }
+  else
+  {
+    sprintf(time_str, "%02d:%02d:%02d\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
     gfx.drawString(120, 20, time_str);
   }
 
   gfx.setTextAlignment(TEXT_ALIGN_LEFT);
   gfx.setFont(ArialMT_Plain_10);
   gfx.setColor(MINI_BLUE);
-  if (IS_STYLE_12HR) {
-    sprintf(time_str, "%s\n%s", dstAbbrev, timeinfo->tm_hour>=12?"PM":"AM");
+  if (IS_STYLE_12HR)
+  {
+    sprintf(time_str, "%s\n%s", dstAbbrev, timeinfo->tm_hour >= 12 ? "PM" : "AM");
     gfx.drawString(195, 27, time_str);
-  } else {
+  }
+  else
+  {
     sprintf(time_str, "%s", dstAbbrev);
-    gfx.drawString(195, 27, time_str);  // Known bug: Cuts off 4th character of timezone abbreviation
+    gfx.drawString(195, 27, time_str); // Known bug: Cuts off 4th character of timezone abbreviation
   }
 }
 
 // draws current weather information
-void drawCurrentWeather() {
+void drawCurrentWeather()
+{
   gfx.setTransparentColor(MINI_BLACK);
   gfx.drawPalettedBitmapFromPgm(0, 55, getMeteoconIconFromProgmem(currentWeather.icon));
   // Weather Text
@@ -400,41 +473,44 @@ void drawCurrentWeather() {
   gfx.setFont(ArialRoundedMTBold_36);
   gfx.setColor(MINI_WHITE);
   gfx.setTextAlignment(TEXT_ALIGN_RIGHT);
-   
+
   gfx.drawString(220, 78, String(currentWeather.temp, 1) + (IS_METRIC ? "°C" : "°F"));
 
   gfx.setFont(ArialRoundedMTBold_14);
   gfx.setColor(MINI_YELLOW);
   gfx.setTextAlignment(TEXT_ALIGN_RIGHT);
   gfx.drawString(220, 118, currentWeather.description);
-
 }
 
-void drawForecast1(MiniGrafx *display, CarouselState* state, int16_t x, int16_t y) {
+void drawForecast1(MiniGrafx *display, CarouselState *state, int16_t x, int16_t y)
+{
   drawForecastDetail(x + 10, y + 165, 0);
   drawForecastDetail(x + 95, y + 165, 1);
   drawForecastDetail(x + 180, y + 165, 2);
 }
 
-void drawForecast2(MiniGrafx *display, CarouselState* state, int16_t x, int16_t y) {
+void drawForecast2(MiniGrafx *display, CarouselState *state, int16_t x, int16_t y)
+{
   drawForecastDetail(x + 10, y + 165, 3);
   drawForecastDetail(x + 95, y + 165, 4);
   drawForecastDetail(x + 180, y + 165, 5);
 }
 
-void drawForecast3(MiniGrafx *display, CarouselState* state, int16_t x, int16_t y) {
+void drawForecast3(MiniGrafx *display, CarouselState *state, int16_t x, int16_t y)
+{
   drawForecastDetail(x + 10, y + 165, 6);
   drawForecastDetail(x + 95, y + 165, 7);
   drawForecastDetail(x + 180, y + 165, 8);
 }
 
 // helper for the forecast columns
-void drawForecastDetail(uint16_t x, uint16_t y, uint8_t dayIndex) {
+void drawForecastDetail(uint16_t x, uint16_t y, uint8_t dayIndex)
+{
   gfx.setColor(MINI_YELLOW);
   gfx.setFont(ArialRoundedMTBold_14);
   gfx.setTextAlignment(TEXT_ALIGN_CENTER);
   time_t time = forecasts[dayIndex].observationTime + dstOffset;
-  struct tm * timeinfo = localtime (&time);
+  struct tm *timeinfo = localtime(&time);
   gfx.drawString(x + 25, y - 15, WDAY_NAMES[timeinfo->tm_wday] + " " + String(timeinfo->tm_hour) + ":00");
 
   gfx.setColor(MINI_WHITE);
@@ -446,7 +522,8 @@ void drawForecastDetail(uint16_t x, uint16_t y, uint8_t dayIndex) {
 }
 
 // draw moonphase and sunrise/set and moonrise/set
-void drawAstronomy() {
+void drawAstronomy()
+{
 
   gfx.setFont(MoonPhases_Regular_36);
   gfx.setColor(MINI_WHITE);
@@ -458,7 +535,7 @@ void drawAstronomy() {
   gfx.setTextAlignment(TEXT_ALIGN_CENTER);
   gfx.setColor(MINI_YELLOW);
   gfx.drawString(120, 250, MOON_PHASES[moonData.phase]);
-  
+
   gfx.setTextAlignment(TEXT_ALIGN_LEFT);
   gfx.setColor(MINI_YELLOW);
   gfx.drawString(5, 250, "Sun");
@@ -478,32 +555,32 @@ void drawAstronomy() {
   gfx.drawString(235, 291, String(moonData.illumination * 100, 0) + "%");
   gfx.drawString(200, 276, "Age:");
   gfx.drawString(200, 291, "Illum:");
-
 }
 
-void drawCurrentWeatherDetail() {
+void drawCurrentWeatherDetail()
+{
   gfx.setFont(ArialRoundedMTBold_14);
   gfx.setTextAlignment(TEXT_ALIGN_CENTER);
   gfx.setColor(MINI_WHITE);
   gfx.drawString(120, 2, "Current Conditions");
 
-  //gfx.setTransparentColor(MINI_BLACK);
-  //gfx.drawPalettedBitmapFromPgm(0, 20, getMeteoconIconFromProgmem(conditions.weatherIcon));
+  // gfx.setTransparentColor(MINI_BLACK);
+  // gfx.drawPalettedBitmapFromPgm(0, 20, getMeteoconIconFromProgmem(conditions.weatherIcon));
 
   String degreeSign = "°F";
-  if (IS_METRIC) {
+  if (IS_METRIC)
+  {
     degreeSign = "°C";
   }
   // String weatherIcon;
   // String weatherText;
   drawLabelValue(0, "Temperature:", currentWeather.temp + degreeSign);
-  drawLabelValue(1, "Wind Speed:", String(currentWeather.windSpeed, 1) + (IS_METRIC ? "m/s" : "mph") );
+  drawLabelValue(1, "Wind Speed:", String(currentWeather.windSpeed, 1) + (IS_METRIC ? "m/s" : "mph"));
   drawLabelValue(2, "Wind Dir:", String(currentWeather.windDeg, 1) + "°");
   drawLabelValue(3, "Humidity:", String(currentWeather.humidity) + "%");
   drawLabelValue(4, "Pressure:", String(currentWeather.pressure) + "hPa");
   drawLabelValue(5, "Clouds:", String(currentWeather.clouds) + "%");
   drawLabelValue(6, "Visibility:", String(currentWeather.visibility) + "m");
-
 
   /*gfx.setTextAlignment(TEXT_ALIGN_LEFT);
   gfx.setColor(MINI_YELLOW);
@@ -512,7 +589,8 @@ void drawCurrentWeatherDetail() {
   gfx.drawStringMaxWidth(15, 200, 240 - 2 * 15, forecasts[0].forecastText);*/
 }
 
-void drawLabelValue(uint8_t line, String label, String value) {
+void drawLabelValue(uint8_t line, String label, String value)
+{
   const uint8_t labelX = 15;
   const uint8_t valueX = 150;
   gfx.setTextAlignment(TEXT_ALIGN_LEFT);
@@ -523,32 +601,43 @@ void drawLabelValue(uint8_t line, String label, String value) {
 }
 
 // converts the dBm to a range between 0 and 100%
-int8_t getWifiQuality() {
+int8_t getWifiQuality()
+{
   int32_t dbm = WiFi.RSSI();
-  if(dbm <= -100) {
-      return 0;
-  } else if(dbm >= -50) {
-      return 100;
-  } else {
-      return 2 * (dbm + 100);
+  if (dbm <= -100)
+  {
+    return 0;
+  }
+  else if (dbm >= -50)
+  {
+    return 100;
+  }
+  else
+  {
+    return 2 * (dbm + 100);
   }
 }
 
-void drawWifiQuality() {
+void drawWifiQuality()
+{
   int8_t quality = getWifiQuality();
   gfx.setColor(MINI_WHITE);
-  gfx.setTextAlignment(TEXT_ALIGN_RIGHT);  
+  gfx.setTextAlignment(TEXT_ALIGN_RIGHT);
   gfx.drawString(228, 9, String(quality) + "%");
-  for (int8_t i = 0; i < 4; i++) {
-    for (int8_t j = 0; j < 2 * (i + 1); j++) {
-      if (quality > i * 25 || j == 0) {
+  for (int8_t i = 0; i < 4; i++)
+  {
+    for (int8_t j = 0; j < 2 * (i + 1); j++)
+    {
+      if (quality > i * 25 || j == 0)
+      {
         gfx.setPixel(230 + 2 * i, 18 - j);
       }
     }
   }
 }
 
-void drawForecastTable(uint8_t start) {
+void drawForecastTable(uint8_t start)
+{
   gfx.setFont(ArialRoundedMTBold_14);
   gfx.setTextAlignment(TEXT_ALIGN_CENTER);
   gfx.setColor(MINI_WHITE);
@@ -556,34 +645,36 @@ void drawForecastTable(uint8_t start) {
   uint16_t y = 0;
 
   String degreeSign = "°F";
-  if (IS_METRIC) {
+  if (IS_METRIC)
+  {
     degreeSign = "°C";
   }
-  for (uint8_t i = start; i < start + 4; i++) {
+  for (uint8_t i = start; i < start + 4; i++)
+  {
     gfx.setTextAlignment(TEXT_ALIGN_LEFT);
     y = 45 + (i - start) * 75;
-    if (y > 320) {
+    if (y > 320)
+    {
       break;
     }
     gfx.setColor(MINI_WHITE);
     gfx.setTextAlignment(TEXT_ALIGN_CENTER);
     time_t time = forecasts[i].observationTime + dstOffset;
-    struct tm * timeinfo = localtime (&time);
+    struct tm *timeinfo = localtime(&time);
     gfx.drawString(120, y - 15, WDAY_NAMES[timeinfo->tm_wday] + " " + String(timeinfo->tm_hour) + ":00");
 
-   
     gfx.drawPalettedBitmapFromPgm(0, 15 + y, getMiniMeteoconIconFromProgmem(forecasts[i].icon));
     gfx.setTextAlignment(TEXT_ALIGN_LEFT);
     gfx.setColor(MINI_YELLOW);
     gfx.setFont(ArialRoundedMTBold_14);
     gfx.drawString(10, y, forecasts[i].main);
     gfx.setTextAlignment(TEXT_ALIGN_LEFT);
-    
+
     gfx.setColor(MINI_BLUE);
     gfx.drawString(50, y, "T:");
     gfx.setColor(MINI_WHITE);
     gfx.drawString(70, y, String(forecasts[i].temp, 0) + degreeSign);
-    
+
     gfx.setColor(MINI_BLUE);
     gfx.drawString(50, y + 15, "H:");
     gfx.setColor(MINI_WHITE);
@@ -598,21 +689,21 @@ void drawForecastTable(uint8_t start) {
     gfx.drawString(130, y, "Pr:");
     gfx.setColor(MINI_WHITE);
     gfx.drawString(170, y, String(forecasts[i].pressure, 0) + "hPa");
-    
+
     gfx.setColor(MINI_BLUE);
     gfx.drawString(130, y + 15, "WSp:");
     gfx.setColor(MINI_WHITE);
-    gfx.drawString(170, y + 15, String(forecasts[i].windSpeed, 0) + (IS_METRIC ? "m/s" : "mph") );
+    gfx.drawString(170, y + 15, String(forecasts[i].windSpeed, 0) + (IS_METRIC ? "m/s" : "mph"));
 
     gfx.setColor(MINI_BLUE);
     gfx.drawString(130, y + 30, "WDi: ");
     gfx.setColor(MINI_WHITE);
     gfx.drawString(170, y + 30, String(forecasts[i].windDeg, 0) + "°");
-
   }
 }
 
-void drawAbout() {
+void drawAbout()
+{
   gfx.fillBuffer(MINI_BLACK);
   gfx.drawPalettedBitmapFromPgm(20, 5, ThingPulseLogo);
 
@@ -623,11 +714,11 @@ void drawAbout() {
 
   gfx.setFont(ArialRoundedMTBold_14);
   gfx.setTextAlignment(TEXT_ALIGN_CENTER);
-  drawLabelValue(7, "Heap Mem:", String(ESP.getFreeHeap() / 1024)+"kb");
-  drawLabelValue(8, "Flash Mem:", String(ESP.getFlashChipRealSize() / 1024 / 1024) + "MB");
+  drawLabelValue(7, "Heap Mem:", String(ESP.getFreeHeap() / 1024) + "kb");
+  // drawLabelValue(8, "Flash Mem:", String(ESP.getFlashChipRealSize() / 1024 / 1024) + "MB");
   drawLabelValue(9, "WiFi Strength:", String(WiFi.RSSI()) + "dB");
-  drawLabelValue(10, "Chip ID:", String(ESP.getChipId()));
-  drawLabelValue(11, "VCC: ", String(ESP.getVcc() / 1024.0) +"V");
+  // drawLabelValue(10, "Chip ID:", String(ESP.getChipId()));
+  // drawLabelValue(11, "VCC: ", String(ESP.getVcc() / 1024.0) + "V");
   drawLabelValue(12, "CPU Freq.: ", String(ESP.getCpuFreqMHz()) + "MHz");
   char time_str[15];
   const uint32_t millis_in_day = 1000 * 60 * 60 * 24;
@@ -642,17 +733,19 @@ void drawAbout() {
   gfx.setColor(MINI_YELLOW);
   gfx.drawString(15, 250, "Last Reset: ");
   gfx.setColor(MINI_WHITE);
-  gfx.drawStringMaxWidth(15, 265, 240 - 2 * 15, ESP.getResetInfo());
+  gfx.drawStringMaxWidth(15, 265, 240 - 2 * 15, "reset info" /*ESP.getResetInfo()*/);
 }
 
-void calibrationCallback(int16_t x, int16_t y) {
+void calibrationCallback(int16_t x, int16_t y)
+{
   gfx.setColor(1);
   gfx.fillCircle(x, y, 10);
 }
 
-String getTime(time_t *timestamp) {
+String getTime(time_t *timestamp)
+{
   struct tm *timeInfo = gmtime(timestamp);
-  
+
   char buf[6];
   sprintf(buf, "%02d:%02d", timeInfo->tm_hour, timeInfo->tm_min);
   return String(buf);
